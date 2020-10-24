@@ -1,0 +1,25 @@
+---
+title: "Assignment 1: Writeup"
+author: "Kyle Kurkela"
+date: "10/11/2020"
+output: pdf_document
+---
+
+## Descriptive Statistics
+
+The PISA data had observations from `r nrow(df)` Russian students from `r nrow(school_counts)` schools. Each school contributed, on average, `r cluster.stats$mean` students. The number of students per school ranged from 1 to 35, with the majority contributing more than `r cluster.stats$median` students. See Figure 1 for a histogram of the distribution the number of students per school.
+
+The descriptive statistics of the 5 variables of interest (Math Interest, Math Utility, Math Confidence, Cognitive Learning Strategy, and Metacognitive Learning Strategy) are reported in Table 1. School identity explained little variance in these variables, with Intraclass Correlations ranging from 0.03 - 0.06. All 5 of these variables are moderately correlated with one another (.29 < r < .53).
+
+## Figures
+
+```{r echo=FALSE}
+Fig1
+```
+
+## Tables
+
+```{r echo=FALSE}
+Tbl1.pretty
+```
+

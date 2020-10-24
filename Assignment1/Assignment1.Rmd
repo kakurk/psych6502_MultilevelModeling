@@ -1,0 +1,137 @@
+---
+title: "Assignment 1: Code"
+author: "Kyle Kurkela"
+date: "10/11/2020"
+output: html_document
+---
+
+Below is the code used to run the descriptive analysis for Assignment 1.
+
+I choose to analyze the `PISA: Russia` dataset.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lme4)
+library(performance)
+
+df <- read_csv('pisaRUS.csv', col_types = cols())
+
+# select at least 5 continuous level 1 variables
+df %>%
+  select(SCHOOLID, MATHINT, MATHUTIL, MATHCONF, COGLEARN, METACOG) -> df
+```
+
+## Cluster Descriptives
+
+Code used to get descriptive statistics for the number of students per cluster (i.e., School).
+
+```{r}
+nrow(df)
+```
+
+Each row of the `df` corresponds to a student. There are a total of `r nrow(df)` students in the `PISA: Russia` dataset.  
+
+```{r descriptives}
+df %>%
+  count(SCHOOLID) -> school_counts
+
+descriptives <- c('n', 'min', 'max', 'mean', 'median', 'sd')
+
+psych::describe(x = school_counts) %>%
+  filter(vars == 2) %>%
+  select(all_of(descriptives)) %>%
+  magrittr::set_rownames('frequency') -> cluster.stats
+
+cluster.stats
+```
+
+```{r}
+ggplot(school_counts, aes(n)) +
+  geom_histogram(bins = 30) +
+  labs(y = 'Frequnecy', x = 'Number of Students',
+       title = 'Figure 1: Number of Students in Each School',
+       subtitle = 'PISA: Russia') +
+  theme_classic() -> Fig1
+
+Fig1
+``` 
+
+## Level 1 Descriptives
+
+Code used to generate a table of descriptive statistics for the Level 1 variables.  
+
+```{r}
+vars_of_interest <- c('MATHINT', 'MATHUTIL', 'MATHCONF', 'COGLEARN', 'METACOG')
+nvars <- length(vars_of_interest)
+
+options(knitr.kable.NA = '')
+
+# Level 1: Mean and Standard Deviation calculation
+df %>%
+  select(-SCHOOLID) %>%
+  psych::describe() %>%
+  select(mean, sd) %>%
+  as_tibble(rownames = 'vars') %>%
+  mutate(across(where(is.double), .fns = round, digits = 2)) %>%
+  transmute(vars = vars,
+            mean_sd = str_glue('{mean} ({sd})')) -> lvl1.summary
+
+# Level 1: Correlation Matrix Calculation
+corrr::correlate(df %>% select(all_of(vars_of_interest)), quiet = TRUE) %>%
+  corrr::shave() %>%
+  select(-where(~is.na(.x) %>% all())) -> lvl1.corrs
+
+# Level 1: ICC calculations
+FIT.list <- vector(mode = 'list', length = nvars)
+ICC.list <- vector(mode = 'double', length = nvars)
+for(v in 1:nvars){
+  FORM <- str_glue('{vars_of_interest[v]} ~ 1 + (1|SCHOOLID)')
+  FIT <- lmer(as.formula(FORM), data = df)
+  FIT.list[[v]] <- FIT
+  ICC.list[v] <- icc(FIT) %>% as.double() %>% unique()
+}
+
+# Joining into a table
+left_join(lvl1.summary, lvl1.corrs, by = c('vars' = 'rowname')) %>%
+  add_column(ICC = ICC.list) -> Tbl1
+```
+
+```{r}
+# MATHINT
+summary(FIT.list[[1]])
+```
+
+```{r}
+# MATHUTIL
+summary(FIT.list[[2]])
+```
+
+```{r}
+# METHCONF
+summary(FIT.list[[3]])
+```
+
+```{r}
+# COGLEARN
+summary(FIT.list[[4]])
+```
+
+```{r}
+# METACOG
+summary(FIT.list[[5]])
+```
+
+```{r}
+# Pretty Printing of Table
+Tbl1 %>%
+  kable(col.names = c('','', vars_of_interest[1:length(vars_of_interest)-1], ''), 
+        caption = 'Table 1: Mean, standard deviation, and correlation of Level 1 variables',
+        digits = 2, row.names = F,
+        align = c('l','c','c','c','c','c','c')) %>%
+  kable_styling() %>%
+  add_header_above(header = c('Variables', 'Mean (SD)', 'Correlation' = 4, 'ICC')) -> Tbl1.pretty
+
+Tbl1.pretty
+```
+
