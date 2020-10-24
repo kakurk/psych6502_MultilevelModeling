@@ -15,11 +15,13 @@ library(kableExtra)
 library(lme4)
 library(performance)
 
-df <- read_csv('pisaRUS.csv', col_types = cols())
+df <- read_csv('../data/pisaRUS.csv', col_types = cols())
 
 # select at least 5 continuous level 1 variables
 df %>%
   select(SCHOOLID, MATHINT, MATHUTIL, MATHCONF, COGLEARN, METACOG) -> df
+
+write_rds('df', 'data.rds')
 ```
 
 ## Cluster Descriptives
@@ -36,12 +38,16 @@ Each row of the `df` corresponds to a student. There are a total of `r nrow(df)`
 df %>%
   count(SCHOOLID) -> school_counts
 
+write_rds(school_counts, 'school_counts.rds')
+
 descriptives <- c('n', 'min', 'max', 'mean', 'median', 'sd')
 
 psych::describe(x = school_counts) %>%
   filter(vars == 2) %>%
   select(all_of(descriptives)) %>%
   magrittr::set_rownames('frequency') -> cluster.stats
+
+write_rds(cluster.stats, 'clusters_stats.rds')
 
 cluster.stats
 ```
@@ -53,6 +59,8 @@ ggplot(school_counts, aes(n)) +
        title = 'Figure 1: Number of Students in Each School',
        subtitle = 'PISA: Russia') +
   theme_classic() -> Fig1
+
+write_rds(Fig1, 'Fig1.rds')
 
 Fig1
 ``` 
@@ -131,6 +139,8 @@ Tbl1 %>%
         align = c('l','c','c','c','c','c','c')) %>%
   kable_styling() %>%
   add_header_above(header = c('Variables', 'Mean (SD)', 'Correlation' = 4, 'ICC')) -> Tbl1.pretty
+
+write_rds(Tbl1, path = 'Tbl1.rds')
 
 Tbl1.pretty
 ```

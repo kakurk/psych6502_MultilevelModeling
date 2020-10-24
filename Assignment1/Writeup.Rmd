@@ -5,21 +5,49 @@ date: "10/11/2020"
 output: pdf_document
 ---
 
+```{r, echo=FALSE, warning=FALSE}
+shh <- suppressPackageStartupMessages
+shh(library(tidyverse))
+shh(library(kableExtra))
+
+vars_of_interest <- c('MATHINT', 'MATHUTIL', 'MATHCONF', 'COGLEARN', 'METACOG')
+
+school_counts <- read_rds('school_counts.rds')
+df <- read_rds('data.rds')
+nstudents <- nrow(df)
+cluster.stats <- read_rds('clusters_stats.rds')
+```
+
 ## Descriptive Statistics
 
-The PISA data had observations from `r nrow(df)` Russian students from `r nrow(school_counts)` schools. Each school contributed, on average, `r cluster.stats$mean` students. The number of students per school ranged from 1 to 35, with the majority contributing more than `r cluster.stats$median` students. See Figure 1 for a histogram of the distribution the number of students per school.
-
-The descriptive statistics of the 5 variables of interest (Math Interest, Math Utility, Math Confidence, Cognitive Learning Strategy, and Metacognitive Learning Strategy) are reported in Table 1. School identity explained little variance in these variables, with Intraclass Correlations ranging from 0.03 - 0.06. All 5 of these variables are moderately correlated with one another (.29 < r < .53).
+The PISA data had observations from `r 4997` Russian students from `r nrow(school_counts)` schools. Each school contributed, on average, `r round(cluster.stats$mean, 2)` students with a standard deviation of `r round(cluster.stats$sd, 2)`. The number of students per school ranged from 1 to 35, with the half of schools contributing more than `r cluster.stats$median` students. See Figure 1 for a histogram of the distribution the number of students per school. Descriptive statistics for the following variables of interest are summarised in Table 1: Math interest, Math utility, Math confidence, Cognitive learning strategy, and Metacognitive learning strategy.
 
 ## Figures
 
-```{r echo=FALSE}
+```{r echo=FALSE, fig.align='center', fig.height=3, fig.width=5}
+Fig1 <- read_rds('Fig1.rds')
 Fig1
 ```
-
+  
+  
 ## Tables
 
 ```{r echo=FALSE}
-Tbl1.pretty
+Tbl1 <- read_rds('Tbl1.rds')
+
+options(knitr.kable.NA = '')
+
+Tbl1 %>%
+  kable(format = 'latex',
+        col.names = c('','', vars_of_interest[1:length(vars_of_interest)-1], ''), 
+        caption = 'Table 1: Mean, standard deviation, and correlation of Level 1 variables',
+        digits = 2, row.names = F,
+        align = c('l','c','c','c','c','c','c'),
+        booktabs = T) %>%
+  kable_styling(latex_options = 'HOLD_position',
+                position = 'center') %>%
+  add_header_above(header = c('Variables', 'Mean (SD)',
+                              'Correlation' = 4, 'ICC')) %>%
+  footnote(general = 'N = 4997 students. SD = standard deviation. ICC = intraclass correlation. Means, standard deviations, and correlations were computed ignoring the clusted structure. MATHINT = Math interest, MATHUTIL = Math utility, MATHCONF = Math confidence, COGLEARN = Cognitive learning strategy, METACOG = Metacognitive learning strategy.', threeparttable = T, footnote_as_chunk = T)
 ```
 

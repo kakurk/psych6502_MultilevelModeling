@@ -5,3 +5,8 @@
 *.Rproj
 *.html
 *.tex
+.Rproj.user
+*.pdf
+*.log
+*.DS_Store
+*.rds
