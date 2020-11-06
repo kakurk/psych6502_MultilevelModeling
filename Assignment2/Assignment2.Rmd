@@ -1,0 +1,184 @@
+---
+title: "Assignment 2: Code"
+author: "Kyle Kurkela"
+date: "11/06/2020"
+output: html_document
+---
+
+Below is the code used to run the analyses for Assignment 2.
+
+Like for assignment 1, I choose to analyze the `PISA: Russia` dataset.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(kableExtra)
+library(lme4)
+library(performance)
+library(lmerTest)
+library(nlme)
+
+df <- read_csv('../data/pisaRUS.csv', col_types = cols())
+
+# select at least 5 continuous level 1 variables
+df %>%
+  select(SCHOOLID, MATHINT, MATHUTIL, MATHCONF, COGLEARN, METACOG) -> df
+```
+
+### Select a dependent variable. Choose at least 2 level-1 predictors.
+
+For my analysis, I will use metacognitive learning strategy (`METCOG`) as my dependent variable and Math interest (`MATHINT`), Math utility (`MATHUTIL`), and Math confidence (`MATHCONF`) as my predictors.
+
+```{r}
+# select the dv and the predictors
+df %>%
+  select(SCHOOLID, METACOG, MATHINT, MATHUTIL, MATHCONF) -> df
+```
+
+### Model 1: Random Intercepts and Fixed Slopes
+
+The first model will contain random intercepts by school and fixed slopes. In equation form:
+
+**Multilevel Form**:
+  
+Level 1:  
+$METACOG_{i,j} = \beta_{0j} + \beta_{1,j} MATHINT + \beta_{2,j} MATHUTIL + \beta_{3,j} MATHCONF$  
+$e_{ij} \thicksim N(0,\sigma^2)$  
+  
+Level 2:  
+$\beta_{0j} = \gamma_{00} + u_{0j}$  
+$\beta_{1j} = \gamma_{10}$  
+$\beta_{2j} = \gamma_{20}$  
+$\beta_{3j} = \gamma_{30}$  
+  
+**Mixed Model Form**:  
+  
+$$METACOG_{ij} = \gamma_{00} + \gamma_{10} MATHINT_{ij} + \gamma_{20} MATHUTIL_{i,j} + \gamma_{30} MATHCONF_{ij} + u_{0j} + e_{ij}$$
+
+**Parameters**:
+Fixed effects coefficients:  
+- $\gamma_{00}$  
+- $\gamma_{10}$  
+- $\gamma_{20}$  
+- $\gamma_{30}$  
+Variance of the random intercept:  
+- $Var(u_{0j}) = \tau_{00}$  
+Variance of the level-1 residual:  
+- $Var(e_{ij} = \sigma^2)$  
+
+6 Total Parameters
+
+```{r}
+# Run Model 1, making sure to use lmerTest version of `lmer` function
+Model1 <- lmerTest::lmer(METACOG ~ MATHINT + MATHUTIL + MATHCONF + (1|SCHOOLID), data = df)
+
+write_rds(Model1, 'Model1.Rds')
+
+summary(Model1)
+```
+
+### Model 2: Random Intercepts and Random Slopes
+
+The second model will contain random intercepts by school and random slopes for MATHINT, MATHUTIL, and MATHCONF. In equation form:
+
+**Multilevel Form**:
+  
+Level 1:  
+$METACOG_{i,j} = \beta_{0j} + \beta_{1,j} MATHINT + \beta_{2,j} MATHUTIL + \beta_{3,j} MATHCONF$  
+$e_{ij} \thicksim N(0,\sigma^2)$  
+  
+Level 2:  
+$\beta_{0j} = \gamma_{00} + u_{0j}$  
+$\beta_{1j} = \gamma_{10} + u_{1j}$  
+$\beta_{2j} = \gamma_{20} + u_{2j}$  
+$\beta_{3j} = \gamma_{30} + u_{3j}$  
+  
+$\boldsymbol{u}_{j} \thicksim MVN(\boldsymbol{0}, \boldsymbol{T})$
+  
+**Mixed Model Form**:  
+  
+$$METACOG_{ij} = \gamma_{00} + \gamma_{10} MATHINT_{ij} + \gamma_{20} MATHUTIL_{i,j} + \gamma_{30} MATHCONF_{ij} + u_{0j} + u_{0j} + u_{1j} MATHINT_{ij} + u_{2j} MATHUTIL_{ij} + u_{3j} MATHCONF_{ij}  + e_{ij}$$
+
+**Parameters**:
+Fixed effects coefficients:  
+- $\gamma_{00}$  
+- $\gamma_{10}$  
+- $\gamma_{20}$  
+- $\gamma_{30}$  
+Variance of the level 2 random effects:
+- $\boldsymbol{T}$ = (4 x 4) covariance matrix with 10 paramaters  
+Variance of the level-1 residual:  
+- $\sigma^2$  
+
+15 Total Parameters
+
+```{r}
+# Run Model 1, making sure to use lmerTest version of `lmer` function
+Model2 <- lmerTest::lmer(METACOG ~ MATHINT + MATHUTIL + MATHCONF + (MATHINT + MATHUTIL + MATHCONF| SCHOOLID), data = df)
+
+summary(Model2)
+```
+
+The model failed to converge! Lets make the model simpler by dropping one of the random effects. The MATHINT random slopes seems to have the smallest variance (0.00296), so lets try dropping that one:
+
+```{r}
+Model2a <- lmerTest::lmer(METACOG ~ MATHINT + MATHUTIL + MATHCONF + (MATHUTIL + MATHCONF | SCHOOLID), data = df)
+
+write_rds(Model2a, 'Model2a.Rds')
+
+summary(Model2a)
+```
+
+Success! The model has converged.  
+
+### Model 3: Random Intercept and Random slopes with Variance Components (VC) covariance structure
+
+The second model will contain random intercepts by school and random slopes for MATHUTIL and MATHCONF (see Model 2a). In equation form:
+
+**Multilevel Form**:
+  
+Level 1:  
+$METACOG_{i,j} = \beta_{0j} + \beta_{1,j} MATHINT + \beta_{2,j} MATHUTIL + \beta_{3,j} MATHCONF$  
+$e_{ij} \thicksim N(0,\sigma^2)$  
+  
+Level 2:  
+$\beta_{0j} = \gamma_{00} + u_{0j}$  
+$\beta_{1j} = \gamma_{10}$  
+$\beta_{2j} = \gamma_{20} + u_{2j}$  
+$\beta_{3j} = \gamma_{30} + u_{3j}$  
+  
+Variance components (VC) covariance structure:  
+  
+$$\begin{bmatrix} u_0j \\ u_{2j} \\ u_{3j} \end{bmatrix} \thicksim MVN(\begin{bmatrix} 0 \\ 0 \\ 0 \end{bmatrix}, \begin{bmatrix} \tau_{00} & & \\ 0 & \tau_{11} & \\ 0 & 0 & \tau_{33} \end{bmatrix})$$
+  
+**Mixed Model Form**:  
+  
+$$METACOG_{ij} = \gamma_{00} + \gamma_{10} MATHINT_{ij} + \gamma_{20} MATHUTIL_{i,j} + \gamma_{30} MATHCONF_{ij} + u_{0j} + u_{0j} + u_{2j} MATHUTIL_{ij} + u_{3j} MATHCONF_{ij}  + e_{ij}$$
+
+**Parameters**:
+Fixed effects coefficients:  
+- $\gamma_{00}$  
+- $\gamma_{10}$  
+- $\gamma_{20}$  
+- $\gamma_{30}$  
+Variance of the level 2 random effects:
+- $\boldsymbol{T}$ = (3 x 3) covariance matrix with 3 paramaters  
+Variance of the level-1 residual:  
+- $\sigma^2$  
+
+8 Total Parameters
+
+```{r paged.print=FALSE}
+library(nlme)
+Model3 <- lme(METACOG ~ MATHINT + MATHUTIL + MATHCONF, 
+              random = list(SCHOOLID = pdDiag(~1 + MATHUTIL + MATHCONF)), data = df)
+
+write_rds(Model3, 'Model3.Rds')
+
+summary(Model3)
+```
+```{r}
+# Get the Variance-Covariance matrix
+getVarCov(Model3)
+```
+
+Looks like it worked!!
