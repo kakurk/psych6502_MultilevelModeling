@@ -1,0 +1,3 @@
+Random effect,Estimate,Likelihood ratio test,p value,95% confidence interval
+var(Intercept),0.003,,,"[0.0016,0.0049]"
+sigma,0.1344,,,"[0.1291,0.1399]"

@@ -1,8 +1,8 @@
 ---
-title: "Assignment 1: Writeup"
+title: "Assignment 2: Writeup"
 author: "Kyle Kurkela"
-date: "10/11/2020"
-output: pdf_document
+date: "11/12/2020"
+output: word_document
 ---
 
 ```{r, echo=FALSE, warning=FALSE}
@@ -31,7 +31,7 @@ The PISA data had observations from `r 4997` Russian students from `r nrow(schoo
 
 ## Modeling
 
-Three different models were run to investigate the effect of Math interest, Math utility, and Math confidence on Metacognitive learning strategy: Model 1: a model a random intercept nested within schools and fixed effects, Model 2: a model with a random intercept and random slopes for Math utility and Math confidence nested within schools, and Model 3: a model with random intercept and random slopes for Math utility and math confidence nested within schools using a variance component covariance structure (see Table 2). 
+Three different models were run to investigate the effect of Math interest, Math utility, and Math confidence on Metacognitive learning strategy: Model 1: a model with a random intercept and fixed effects, Model 2: a model with a random intercept and random slopes for Math utility and Math confidence, and Model 3: a model with random intercept and random slopes for Math utility and math confidence nested within schools using a variance component covariance structure (see Table 2). 
 
 Models 1, 2, and 3 all revelaed similar effects of ...
 
@@ -42,57 +42,6 @@ Fig1 <- read_rds('../Assignment1/Fig1.rds')
 Fig1
 ```
   
-```{r calculate_fixedEff, echo=FALSE, message=FALSE, warning=FALSE}
-# Model 1
-
-# compute confidence intervals around fixed effect estimates
-Model1 %>%
-confint(method = 'profile') %>%
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'MATH')) -> FixedEf.ConfInt
-
-# fixed effect estimates
-Model1 %>%
-  fixed.effects() %>%
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'MATH')) -> FixedEf.Est
-
-left_join(FixedEf.Est, FixedEf.ConfInt, by = 'parameter') -> Model1.FixedEffects
-
-# Model 2
-
-# compute confidence intervals around fixed effect estimates
-Model2a %>%
-confint(method = 'profile') %>%
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'MATH')) -> FixedEf.ConfInt
-
-# fixed effect estimates
-Model2a %>%
-  fixed.effects() %>%
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'MATH')) -> FixedEf.Est
-
-left_join(FixedEf.Est, FixedEf.ConfInt, by = 'parameter') -> Model2.FixedEffects
-
-# Model 3
-
-# compute confidence intervals around fixed effect estimates
-# apparently you cannot use the "stats::confint" function on lme objects.
-# the package authors suggest using "nlme::intervals"
-Model3 %>%
-  intervals(which = 'fixed') -> Conf.Intervals
-
-Conf.Intervals$fixed %>% 
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'MATH')) %>%
-  rename(`2.5 %` = lower,
-         `97.5 %` = upper,
-         value = est.) -> Model3.FixedEffects
-
-bind_rows(Model1.FixedEffects, Model2.FixedEffects, Model3.FixedEffects, .id = 'Model') -> AllModels.df
-```
-  
 ## Tables
 
 ```{r echo=FALSE}
@@ -100,70 +49,16 @@ Tbl1 <- read_rds('../Assignment1/Tbl1.rds')
 
 options(knitr.kable.NA = '')
 
-Tbl1 %>%
-  kable(format = 'latex',
-        col.names = c('','', vars_of_interest[1:length(vars_of_interest)-1], ''), 
-        caption = 'Mean, standard deviation, and correlation of Level 1 variables',
-        digits = 2, row.names = F,
-        align = c('l','c','c','c','c','c','c'),
-        booktabs = T) %>%
-  kable_styling(latex_options = 'HOLD_position',
-                position = 'center') %>%
-  add_header_above(header = c('Variables', 'Mean (SD)',
-                              'Correlation' = 4, 'ICC')) %>%
-  footnote(general = 'N = 4997 students. SD = standard deviation. ICC = intraclass correlation. Means, standard deviations, and correlations were computed ignoring the clusted structure. MATHINT = Math interest, MATHUTIL = Math utility, MATHCONF = Math confidence, COGLEARN = Cognitive learning strategy, METACOG = Metacognitive learning strategy.', threeparttable = T, footnote_as_chunk = T)
-```
-
-```{r, echo = FALSE, message=FALSE, warning=FALSE}
-summary(Model1) -> Model1.Summary
-
-Model1.Summary$coefficients %>%
-  as_tibble(rownames = 'parameter') %>%
-  mutate(Estimate = signif(Estimate, digits = 3),
-         `Std. Error` = signif(`Std. Error`, digits = 2),
-         df = signif(df, digits = 4),
-         `t value` = signif(`t value`, 4)) %>%
-  transmute(parameter = parameter,
-            Estimate_se = str_glue('{Estimate} ({`Std. Error`})'),
-            t_df = str_glue('{`t value`} ({df})'),
-            `p value` = 'p < .001') -> MixedModelTbl.Pt1
-
-confint(Model1) -> ConfidenceIntervals
-
-ConfidenceIntervals %>%
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'sig', negate = T)) -> MixedModelTbl.Pt2
-
-left_join(MixedModelTbl.Pt1, MixedModelTbl.Pt2, by = 'parameter') %>%
-  mutate(across(ends_with('%'), signif, digits = 3)) -> MixedModelTbl
-
-# Random Effects
-VarIntercept <- merTools::REsdExtract(Model1)^2
-ResidualVar <- Model1.Summary$sigma^2
-
-tibble(parameter = c('.sig01', '.sigma'), estimate = c(VarIntercept, ResidualVar)) -> TmpTbl
-
-ConfidenceIntervals %>%
-  as_tibble(rownames = 'parameter') %>%
-  filter(str_detect(parameter, 'sig')) -> TmpTbl2
-  
-left_join(TmpTbl, TmpTbl2) %>%
-  mutate(across(where(is.double), signif, digits = 3)) -> SigmaTbl
-
-MixedModelTbl %>%
-  bind_rows(SigmaTbl) %>%
-  transmute(parameter = parameter,
-            Estimate_se = Estimate_se,
-            t_df = t_df,
-            `p value` = `p value`,
-            `95 % confidence interval` = str_glue('[{`2.5 %`}, {`97.5 %`}]')) -> MixedModelTbl
-  kable(format = 'latex',
-        col.names = c('Fixed effects', 'Estimate (SE)', 't (df)', 'p value', '95 % confidence interval'), 
-        caption = 'Estimated mixed model -- Model 1', 
-        row.names = F,
-        booktabs = T) %>%
-  kable_styling(latex_options = 'HOLD_position',
-                position = 'center') %>%
-  footnote(general = '', threeparttable = T, footnote_as_chunk = T)
-```
+# Tbl1 %>%
+#   kable(col.names = c('','', vars_of_interest[1:length(vars_of_interest)-1], ''), 
+#         caption = 'Mean, standard deviation, and correlation of Level 1 variables',
+#         digits = 2, row.names = F,
+#         align = c('l','c','c','c','c','c','c'),
+#         booktabs = T) %>%
+#   kable_styling(latex_options = 'HOLD_position',
+#                 position = 'center') %>%
+#   add_header_above(header = c('Variables', 'Mean (SD)',
+#                               'Correlation' = 4, 'ICC')) %>%
+#   footnote(general = 'N = 4997 students. SD = standard deviation. ICC = intraclass correlation. Means, standard deviations, and correlations were computed ignoring the clusted structure. MATHINT = Math interest, MATHUTIL = Math utility, MATHCONF = Math confidence, COGLEARN = Cognitive learning strategy, METACOG = Metacognitive learning strategy.', threeparttable = T, footnote_as_chunk = T)
+# ```
 
